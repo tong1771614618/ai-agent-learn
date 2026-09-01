@@ -47,5 +47,8 @@ from python_service.projects.p01_product_search.routes import router as p01_rout
 app.include_router(p01_router)
 
 # ─── 项目 2-12 的路由会陆续添加在这里 ─────────────────────────
-# from python_service.projects.p02_tool_calling.routes import router as p02_router
-# app.include_router(p02_router)
+from python_service.projects.p02_agent.routes import router as p02_router
+app.include_router(p02_router)
+
+# from python_service.projects.p03_order_agent.routes import router as p03_router
+# app.include_router(p03_router)

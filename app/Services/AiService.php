@@ -48,4 +48,32 @@ class AiService
 
         return $response->json();
     }
+
+    /**
+     * 项目 2: Agent 聊天
+     *
+     * 与 parseQuery 的区别：
+     * - parseQuery 调 /p01/parse-query，LLM 单次调用返回结构化 JSON
+     * - agentChat 调 /p02/chat，Python 侧执行 Agent Loop（可能多轮 LLM 调用）
+     *
+     * 所以 timeout 更长（60s vs 30s），因为 Agent 可能要循环好几轮。
+     */
+    public function agentChat(string $message): array
+    {
+        $response = Http::timeout(60)
+            ->post("{$this->baseUrl}/p02/chat", [
+                'message' => $message,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('Agent Chat 调用失败', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'message' => $message,
+            ]);
+            throw new \RuntimeException('Agent 服务暂时不可用，请稍后再试');
+        }
+
+        return $response->json();
+    }
 }

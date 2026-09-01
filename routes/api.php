@@ -67,3 +67,8 @@ Route::get('/health', function () {
 Route::prefix('v1/products')->group(function () {
     Route::post('/search', [\App\Http\Controllers\Api\V1\ProductSearchController::class, 'search']);
 });
+
+// ─── 项目 2: AI 商品搜索 Agent ───────────────────────────
+Route::prefix('v2')->group(function () {
+    Route::post('/chat', [\App\Http\Controllers\Api\V2\AgentChatController::class, 'chat']);
+});

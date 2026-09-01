@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>项目1: AI 商品客服</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f7f7f8; height: 100vh; display: flex; flex-direction: column; }
+
+        /* ── 顶部 ── */
+        .header { background: #1a1a2e; color: white; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+        .header .badge { background: #4361ee; font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+        .header h1 { font-size: 16px; font-weight: 600; }
+        .header p { font-size: 12px; color: #888; margin-left: auto; }
+
+        /* ── 聊天区域 ── */
+        .chat-area { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+        /* 用户消息 */
+        .msg-user { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+        .msg-user .bubble { background: #4361ee; color: white; padding: 10px 16px; border-radius: 16px 16px 4px 16px; font-size: 14px; max-width: 60%; line-height: 1.5; }
+
+        /* AI 响应卡片 */
+        .msg-ai { margin-bottom: 20px; max-width: 85%; }
+
+        /* ── 步骤面板 ── */
+        .steps-panel { background: white; border: 1px solid #e8e8ec; border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
+        .steps-header { display: flex; align-items: center; padding: 10px 14px; background: #fafafa; border-bottom: 1px solid #e8e8ec; cursor: pointer; user-select: none; }
+        .steps-header:hover { background: #f0f0f5; }
+        .steps-header .toggle-icon { font-size: 12px; color: #999; margin-right: 8px; transition: transform 0.2s; }
+        .steps-header .toggle-icon.collapsed { transform: rotate(-90deg); }
+        .steps-header .steps-summary { font-size: 12px; color: #666; }
+        .steps-header .total-time { margin-left: auto; font-size: 11px; color: #999; font-family: "SF Mono", "Menlo", monospace; }
+        .steps-body { overflow: hidden; transition: max-height 0.3s ease; }
+        .steps-body.collapsed { max-height: 0 !important; }
+
+        /* 单个步骤 */
+        .step { display: flex; align-items: flex-start; padding: 8px 14px; border-bottom: 1px solid #f0f0f2; opacity: 0; transform: translateY(-4px); transition: opacity 0.3s, transform 0.3s; }
+        .step.visible { opacity: 1; transform: translateY(0); }
+        .step:last-child { border-bottom: none; }
+        .step .step-icon { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; flex-shrink: 0; margin-right: 10px; margin-top: 1px; }
+        .step .step-icon.done { background: #e8f5e9; color: #43a047; }
+        .step .step-icon.running { background: #fff3e0; color: #fb8c00; }
+        .step .step-info { flex: 1; min-width: 0; }
+        .step .step-name { font-size: 13px; color: #333; font-weight: 500; }
+        .step .step-time { font-size: 11px; color: #999; font-family: "SF Mono", "Menlo", monospace; margin-left: 6px; }
+        .step .step-detail { margin-top: 6px; font-size: 12px; color: #555; background: #f7f7f8; border-radius: 6px; padding: 8px 10px; font-family: "SF Mono", "Menlo", monospace; line-height: 1.6; max-height: 200px; overflow-y: auto; display: none; white-space: pre-wrap; word-break: break-all; }
+        .step.expanded .step-detail { display: block; }
+        .step .step-row { cursor: pointer; display: flex; align-items: center; }
+        .step .step-row:hover .step-name { color: #4361ee; }
+
+        /* spinner */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner { width: 14px; height: 14px; border: 2px solid #ffe0b2; border-top-color: #fb8c00; border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+        /* ── 结果区域 ── */
+        .result-area { background: white; border: 1px solid #e8e8ec; border-radius: 12px; padding: 14px; opacity: 0; transform: translateY(6px); transition: opacity 0.4s, transform 0.4s; }
+        .result-area.visible { opacity: 1; transform: translateY(0); }
+
+        /* 商品卡片 */
+        .product-list { display: grid; gap: 8px; margin-top: 8px; }
+        .product-card { background: #fafafa; border: 1px solid #eee; border-radius: 8px; padding: 10px 14px; transition: box-shadow 0.2s; }
+        .product-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .product-card .p-top { display: flex; justify-content: space-between; align-items: baseline; }
+        .product-card .name { font-weight: 600; font-size: 14px; color: #1a1a2e; }
+        .product-card .price { color: #e63946; font-weight: 700; font-size: 15px; }
+        .product-card .meta { font-size: 12px; color: #888; margin-top: 2px; }
+        .product-card .tags { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 4px; }
+        .product-card .tag { background: #e8f0fe; color: #4361ee; font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+
+        .result-summary { font-size: 13px; color: #666; margin-bottom: 4px; }
+        .result-empty { color: #999; text-align: center; padding: 20px; font-size: 14px; }
+
+        /* ── 错误卡片 ── */
+        .err-card { border-color: #ffcdd2 !important; background: #fff5f5 !important; }
+        .err-summary { color: #c62828; font-size: 13px; line-height: 1.5; }
+        .err-detail { margin-top: 8px; cursor: pointer; }
+        .err-detail pre { display: none; margin-top: 6px; font-size: 11px; color: #555; background: #f7f7f8; border-radius: 6px; padding: 8px 10px; font-family: "SF Mono", "Menlo", monospace; line-height: 1.6; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+        .err-detail.expanded pre { display: block; }
+        .err-detail.expanded .err-toggle { transform: rotate(90deg); }
+        .err-toggle { font-size: 12px; color: #999; transition: transform 0.2s; display: inline-block; }
+
+        /* ── 加载提示 ── */
+        .loading-card { background: white; border: 1px solid #e8e8ec; border-radius: 12px; padding: 14px; display: flex; align-items: center; gap: 10px; }
+        .loading-card .spinner-lg { width: 18px; height: 18px; border: 2px solid #e0e0e0; border-top-color: #4361ee; border-radius: 50%; animation: spin 0.7s linear infinite; }
+        .loading-card span { font-size: 13px; color: #888; }
+
+        /* ── 输入区域 ── */
+        .input-area { padding: 14px 24px; background: white; border-top: 1px solid #e8e8ec; display: flex; gap: 10px; }
+        .input-area input { flex: 1; padding: 10px 16px; border: 1px solid #ddd; border-radius: 20px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+        .input-area input:focus { border-color: #4361ee; }
+        .input-area button { padding: 10px 24px; background: #4361ee; color: white; border: none; border-radius: 20px; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        .input-area button:hover { background: #3a56d4; }
+        .input-area button:disabled { background: #ccc; cursor: not-allowed; }
+
+        .quick-asks { padding: 8px 24px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .quick-asks button { padding: 6px 14px; background: white; border: 1px solid #ddd; border-radius: 16px; font-size: 12px; cursor: pointer; color: #555; transition: all 0.2s; }
+        .quick-asks button:hover { background: #f0f4ff; border-color: #4361ee; color: #4361ee; }
+
+        /* ── 欢迎卡片 ── */
+        .welcome { background: white; border: 1px solid #e8e8ec; border-radius: 12px; padding: 20px; max-width: 480px; margin: 40px auto; text-align: center; }
+        .welcome h2 { font-size: 18px; color: #1a1a2e; margin-bottom: 8px; }
+        .welcome p { font-size: 13px; color: #666; line-height: 1.7; }
+        .welcome .flow { margin-top: 14px; font-size: 12px; color: #4361ee; font-family: "SF Mono", "Menlo", monospace; background: #f0f4ff; border-radius: 8px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="badge">项目 1</span>
+        <h1>AI 商品客服</h1>
+        <p>LLM 意图解析 → 结构化输出 → MySQL 查询</p>
+    </div>
+
+    <div class="chat-area" id="chatArea">
+        <div class="welcome">
+            <h2>AI 商品客服</h2>
+            <p>用自然语言搜索商品。AI 会解析你的意图，然后从数据库中查找匹配的商品。</p>
+            <div class="flow">用户输入 → PHP 接收 → Python AI 解析 → LLM 提取意图 → MySQL 查询 → 返回结果</div>
+        </div>
+    </div>
+
+    <div class="quick-asks" id="quickAsks"></div>
+
+    <div class="input-area">
+        <input type="text" id="queryInput" placeholder="输入你的问题..." onkeydown="if(event.key==='Enter')sendQuery()">
+        <button id="sendBtn" onclick="sendQuery()">发送</button>
+    </div>
+
+    <script>
+    /**
+     * ╔═══════════════════════════════════════════════════════════╗
+     * ║  项目配置区 — 每个项目只需修改这里                         ║
+     * ║  后面的渲染逻辑是通用的，不需要改动                        ║
+     * ╚═══════════════════════════════════════════════════════════╝
+     */
+    const PROJECT_CONFIG = {
+        // API 地址
+        apiUrl: '/api/v1/products/search',
+
+        // 快捷提问按钮
+        quickAsks: [
+            '有没有适合夏天跑步的鞋？',
+            '推荐500以内的篮球鞋',
+            'Nike有什么好的跑鞋？',
+            '防水登山鞋，预算1000左右',
+            '最便宜的入门跑鞋',
+        ],
+
+        /**
+         * 步骤渲染规则 — 告诉前端每个步骤的详情该怎么展示
+         * key = 后端 _steps[].name
+         * render(detail) = 返回一段纯文本字符串（会被 esc 转义后显示）
+         *
+         * 新增项目时，在这里添加新的步骤渲染函数即可
+         */
+        stepRenderers: {
+            '接收请求': (d) => `query: "${d.query}"`,
+
+            'AI 意图解析': (d) => {
+                const lines = [];
+                if (d.intent)   lines.push(`intent:    ${d.intent}`);
+                if (d.category) lines.push(`category:  ${d.category}`);
+                if (d.keywords?.length) lines.push(`keywords:  ${d.keywords.join(', ')}`);
+                if (d.budget_min != null) lines.push(`budget_min: ${d.budget_min}`);
+                if (d.budget_max != null) lines.push(`budget_max: ${d.budget_max}`);
+                if (d.brands?.length) lines.push(`brands:    ${d.brands.join(', ')}`);
+                return lines.join('\n') || JSON.stringify(d, null, 2);
+            },
+
+            '查询商品': (d) => {
+                const f = d.filters;
+                const lines = ['── 查询条件 ──'];
+                if (f.category)   lines.push(`category:  ${f.category}`);
+                if (f.budget_max) lines.push(`budget:    ≤ ¥${f.budget_max}`);
+                if (f.brands?.length) lines.push(`brands:    ${f.brands.join(', ')}`);
+                if (f.keywords?.length) lines.push(`keywords:  ${f.keywords.join(', ')}`);
+                lines.push(`── 结果: ${d.total} 件商品 ──`);
+                return lines.join('\n');
+            },
+        },
+
+        /**
+         * 渲染最终结果 — 不同项目的结果展示完全不同
+         * 项目 1: 商品卡片列表
+         * 项目 2 可能: 对话文本、推荐列表、比较表格...
+         */
+        renderResult: (data) => {
+            if (data.total === 0) {
+                return '<div class="result-empty">没有找到匹配的商品</div>';
+            }
+            let html = `<div class="result-summary">找到 <strong>${data.total}</strong> 件商品</div>`;
+            html += '<div class="product-list">';
+            for (const p of data.products) {
+                html += `
+                    <div class="product-card">
+                        <div class="p-top">
+                            <span class="name">${esc(p.name)}</span>
+                            <span class="price">¥${p.price}</span>
+                        </div>
+                        <div class="meta">${esc(p.brand)} · ${esc(p.category)}</div>
+                        <div class="tags">${(p.tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+                    </div>`;
+            }
+            html += '</div>';
+            return html;
+        },
+    };
+
+    // ═══════════════════════════════════════════════════════
+    // 通用引擎 — 以下代码所有项目共用，不需要修改
+    // ═══════════════════════════════════════════════════════
+
+    // 初始化快捷按钮
+    (function init() {
+        const container = document.getElementById('quickAsks');
+        PROJECT_CONFIG.quickAsks.forEach(text => {
+            const btn = document.createElement('button');
+            btn.textContent = text.length > 12 ? text.slice(0, 12) + '…' : text;
+            btn.onclick = () => { document.getElementById('queryInput').value = text; sendQuery(); };
+            container.appendChild(btn);
+        });
+    })();
+
+    async function sendQuery() {
+        const input = document.getElementById('queryInput');
+        const query = input.value.trim();
+        if (!query) return;
+        input.value = '';
+
+        // 清除欢迎卡片
+        const welcome = document.querySelector('.welcome');
+        if (welcome) welcome.remove();
+
+        // 显示用户消息
+        appendUserMsg(query);
+
+        // 显示加载动画
+        const loadingEl = appendLoading();
+        document.getElementById('sendBtn').disabled = true;
+
+        try {
+            const resp = await fetch(PROJECT_CONFIG.apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify({ query }),
+            });
+
+            let data;
+            try { data = await resp.json(); } catch { data = null; }
+
+            loadingEl.remove();
+
+            if (!resp.ok) {
+                // HTTP 4xx/5xx — 展示后端返回的详细错误
+                appendErrorMsg(data?.message || data?.error || `HTTP ${resp.status}`, data);
+            } else if (data?.error) {
+                appendErrorMsg(data.error, data);
+            } else {
+                await animateResponse(data);
+            }
+        } catch (e) {
+            loadingEl.remove();
+            appendErrorMsg('网络请求失败: ' + e.message, { hint: '请确认 Python AI Service 是否在运行 (port 8001)' });
+        }
+        document.getElementById('sendBtn').disabled = false;
+    }
+
+    // ── 动画：逐步展示处理步骤 ──
+    async function animateResponse(data) {
+        const chat = document.getElementById('chatArea');
+        const steps = data._steps || [];
+        const totalTime = steps.reduce((s, st) => s + (st.duration_ms || 0), 0);
+
+        // 创建 AI 响应容器
+        const aiDiv = document.createElement('div');
+        aiDiv.className = 'msg-ai';
+
+        // ── 步骤面板 ──
+        const panel = document.createElement('div');
+        panel.className = 'steps-panel';
+
+        // 面板头部（可折叠）
+        const header = document.createElement('div');
+        header.className = 'steps-header';
+        header.innerHTML = `
+            <span class="toggle-icon">▼</span>
+            <span class="steps-summary">${steps.length} 个步骤</span>
+            <span class="total-time">${totalTime}ms</span>`;
+        panel.appendChild(header);
+
+        // 步骤内容
+        const body = document.createElement('div');
+        body.className = 'steps-body';
+
+        // 预创建所有步骤 DOM
+        const stepEls = steps.map((step, i) => {
+            const el = document.createElement('div');
+            el.className = 'step';
+            const renderer = PROJECT_CONFIG.stepRenderers[step.name];
+            const detailText = renderer ? renderer(step.detail) : JSON.stringify(step.detail, null, 2);
+            el.innerHTML = `
+                <div class="step-icon running"><div class="spinner"></div></div>
+                <div class="step-info">
+                    <div class="step-row">
+                        <span class="step-name">${esc(step.name)}</span>
+                        <span class="step-time"></span>
+                    </div>
+                    <div class="step-detail">${esc(detailText)}</div>
+                </div>`;
+            body.appendChild(el);
+            return el;
+        });
+
+        panel.appendChild(body);
+        aiDiv.appendChild(panel);
+
+        // ── 结果区域（先隐藏） ──
+        const resultDiv = document.createElement('div');
+        resultDiv.className = 'result-area';
+        resultDiv.innerHTML = PROJECT_CONFIG.renderResult(data);
+        aiDiv.appendChild(resultDiv);
+
+        chat.appendChild(aiDiv);
+        chat.scrollTop = chat.scrollHeight;
+
+        // ── 逐步动画 ──
+        for (let i = 0; i < stepEls.length; i++) {
+            const el = stepEls[i];
+            const step = steps[i];
+
+            // 显示步骤（带滑入动画）
+            await delay(80);
+            el.classList.add('visible');
+            chat.scrollTop = chat.scrollHeight;
+
+            // 模拟处理时间（最小 200ms，最大 600ms，取真实耗时的比例）
+            const animTime = Math.min(600, Math.max(200, step.duration_ms * 0.3));
+            await delay(animTime);
+
+            // 完成 → 切换图标 + 显示耗时
+            const icon = el.querySelector('.step-icon');
+            icon.className = 'step-icon done';
+            icon.innerHTML = '✓';
+            el.querySelector('.step-time').textContent = step.duration_ms + 'ms';
+        }
+
+        // 点击步骤可展开/折叠详情
+        stepEls.forEach(el => {
+            el.querySelector('.step-row').addEventListener('click', () => {
+                el.classList.toggle('expanded');
+            });
+        });
+
+        // 折叠/展开整个步骤面板
+        let collapsed = false;
+        header.addEventListener('click', () => {
+            collapsed = !collapsed;
+            body.classList.toggle('collapsed', collapsed);
+            header.querySelector('.toggle-icon').classList.toggle('collapsed', collapsed);
+            header.querySelector('.steps-summary').textContent =
+                collapsed ? `${steps.length} 个步骤（已折叠）` : `${steps.length} 个步骤已完成`;
+        });
+
+        // 默认折叠步骤面板（结果更重要）
+        collapsed = true;
+        body.classList.add('collapsed');
+        header.querySelector('.toggle-icon').classList.add('collapsed');
+        header.querySelector('.steps-summary').textContent = `${steps.length} 个步骤已完成 · 点击展开`;
+
+        // 显示结果
+        await delay(150);
+        resultDiv.classList.add('visible');
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    // ── DOM 工具函数 ──
+
+    function appendUserMsg(text) {
+        const chat = document.getElementById('chatArea');
+        const div = document.createElement('div');
+        div.className = 'msg-user';
+        div.innerHTML = `<div class="bubble">${esc(text)}</div>`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function appendLoading() {
+        const chat = document.getElementById('chatArea');
+        const div = document.createElement('div');
+        div.className = 'msg-ai';
+        div.innerHTML = `<div class="loading-card"><div class="spinner-lg"></div><span>AI 正在处理...</span></div>`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+        return div;
+    }
+
+    function appendErrorMsg(summary, detail) {
+        const chat = document.getElementById('chatArea');
+        const div = document.createElement('div');
+        div.className = 'msg-ai';
+
+        // 构造可展开的错误详情
+        let detailHtml = '';
+        if (detail) {
+            // 把后端返回的关键信息提取出来
+            const lines = [];
+            if (detail.exception) lines.push(`异常类型: ${detail.exception}`);
+            if (detail.file)      lines.push(`文件: ${detail.file}`);
+            if (detail.line)      lines.push(`行号: ${detail.line}`);
+            if (detail.hint)      lines.push(`提示: ${detail.hint}`);
+            if (detail.error)     lines.push(`错误: ${detail.error}`);
+            // 如果有 trace，只取前 3 条
+            if (detail.trace?.length) {
+                lines.push('── 堆栈 ──');
+                detail.trace.slice(0, 3).forEach(t => {
+                    lines.push(`  ${t.file || ''}:${t.line || ''} → ${t.class || ''}${t.type || ''}${t.function || ''}()`);
+                });
+            }
+            const detailText = lines.length ? lines.join('\n') : JSON.stringify(detail, null, 2);
+            detailHtml = `<div class="err-detail" onclick="this.classList.toggle('expanded')">
+                <span class="err-toggle">▸ 查看详情</span>
+                <pre>${esc(detailText)}</pre>
+            </div>`;
+        }
+
+        div.innerHTML = `<div class="result-area visible err-card">
+            <div class="err-summary">⚠ ${esc(summary)}</div>
+            ${detailHtml}
+        </div>`;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str ?? '';
+        return d.innerHTML;
+    }
+    </script>
+</body>
+</html>

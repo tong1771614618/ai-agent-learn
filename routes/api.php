@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 |
 |   项目 1: AI 商品客服        /api/v1/products/*  →  Python /p01/*
 |   项目 2: Tool Calling Agent /api/v2/*           →  Python /p02/*
-|   项目 3: 订单 Agent         /api/v3/*           →  Python /p03/*
+|   项目 3: AI 搜索引擎(RAG)   /api/v3/*           →  Python /p03/*
 |   项目 4: 售后 Agent (HITL)  /api/v4/*           →  Python /p04/*
 |   项目 5: RAG 知识库         /api/v5/*           →  Python /p05/*
 |   项目 6: RAG + Agent        /api/v6/*           →  Python /p06/*
@@ -71,4 +71,9 @@ Route::prefix('v1/products')->group(function () {
 // ─── 项目 2: AI 商品搜索 Agent ───────────────────────────
 Route::prefix('v2')->group(function () {
     Route::post('/chat', [\App\Http\Controllers\Api\V2\AgentChatController::class, 'chat']);
+});
+
+// ─── 项目 3: AI 搜索引擎 (RAG) ──────────────────────────
+Route::prefix('v3')->group(function () {
+    Route::post('/search', [\App\Http\Controllers\Api\V3\RagSearchController::class, 'search']);
 });

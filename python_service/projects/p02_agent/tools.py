@@ -85,6 +85,24 @@ TOOLS = [
             }
         }
     },
+    {
+            "type": "function",
+            "function": {
+                "name": "get_product_detail",
+                "description": "获取商品详细信息。根据商品 ID 获取特定商品的详细信息。",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {
+                            "type": "number",
+                            "description": "商品 ID"
+                        }
+                    },
+                    "required": ["product_id"]
+                }
+            }
+        },
+
 ]
 
 
@@ -109,6 +127,8 @@ def execute_tool(tool_name: str, arguments: dict) -> str:
     """
     if tool_name == "search_products":
         return _search_products(**arguments)
+    elif tool_name == "get_product_detail":
+        return _get_product_detail(**arguments) 
     else:
         return json.dumps({"error": f"未知工具: {tool_name}"})
 
@@ -139,6 +159,7 @@ def _search_products(
             sql = "SELECT id, name, brand, category, price, tags FROM products WHERE status = 1"
             params = []
 
+
             if category:
                 sql += " AND category = %s"
                 params.append(category)
@@ -156,6 +177,51 @@ def _search_products(
                 for kw in keywords:
                     sql += " AND (name LIKE %s OR description LIKE %s OR JSON_CONTAINS(tags, %s))"
                     params.extend([f"%{kw}%", f"%{kw}%", json.dumps(kw, ensure_ascii=False)])
+
+            sql += " LIMIT 10"
+
+            cursor.execute(sql, params)
+            products = cursor.fetchall()
+
+            # 把 Decimal 转成 float，否则 json.dumps 会报错
+            for p in products:
+                if 'price' in p:
+                    p['price'] = float(p['price'])
+                if 'tags' in p and isinstance(p['tags'], str):
+                    p['tags'] = json.loads(p['tags'])
+
+            return json.dumps({
+                "total": len(products),
+                "products": products,
+            }, ensure_ascii=False)
+    finally:
+        conn.close()
+def _get_product_detail(
+    product_id: int = None
+) -> str:
+    """
+    直接查询 MySQL 商品表
+
+    这是项目 2 里 Agent 的"手"——LLM 决定要搜索，这里负责实际执行。
+    """
+    conn = pymysql.connect(
+        host=settings.DB_HOST,
+        port=settings.DB_PORT,
+        user=settings.DB_USERNAME,
+        password=settings.DB_PASSWORD,
+        database=settings.DB_DATABASE,
+        charset="utf8mb4",
+        cursorclass=pymysql.cursors.DictCursor,
+    )
+
+    try:
+        with conn.cursor() as cursor:
+            sql = "SELECT id, name, brand, category, price, tags FROM products WHERE status = 1"
+            params = []
+
+            if product_id:
+                sql += " AND id = %s"
+                params.append(product_id)
 
             sql += " LIMIT 10"
 

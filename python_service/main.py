@@ -12,8 +12,9 @@
 
   项目路由：
     /p01/parse-query   → 项目 1: AI 商品客服（意图解析）
-    /p02/...           → 项目 2: Tool Calling Agent（待开发）
-    /p03/...           → 项目 3: 订单 Agent（待开发）
+    /p02/chat          → 项目 2: AI 商品搜索 Agent（Tool Calling）
+    /p03/search        → 项目 3: AI 搜索引擎（RAG + Embedding）
+    /p03/init-kb       → 项目 3: 知识库初始化
     ...
 
   新增项目只需：
@@ -28,7 +29,7 @@ from fastapi import FastAPI
 app = FastAPI(
     title="AI Agent Learn - AI Service",
     description="AI Agent 学习项目统一 AI 服务（12 个项目共用）",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 
@@ -36,7 +37,7 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     """健康检查"""
-    return {"status": "ok", "service": "ai-service", "version": "0.2.0"}
+    return {"status": "ok", "service": "ai-service", "version": "0.3.0"}
 
 
 # ─── 注册各项目路由 ───────────────────────────────────────────
@@ -46,9 +47,10 @@ async def health():
 from python_service.projects.p01_product_search.routes import router as p01_router
 app.include_router(p01_router)
 
-# ─── 项目 2-12 的路由会陆续添加在这里 ─────────────────────────
 from python_service.projects.p02_agent.routes import router as p02_router
 app.include_router(p02_router)
 
-# from python_service.projects.p03_order_agent.routes import router as p03_router
-# app.include_router(p03_router)
+from python_service.projects.p03_rag_search.routes import router as p03_router
+app.include_router(p03_router)
+
+# ─── 项目 4-12 的路由会陆续添加在这里 ─────────────────────────

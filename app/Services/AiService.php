@@ -76,4 +76,34 @@ class AiService
 
         return $response->json();
     }
+
+    /**
+     * 项目 3: RAG 搜索
+     *
+     * 与其他项目的区别：
+     * - 项目 1: LLM 返回结构化 JSON（意图解析）
+     * - 项目 2: Agent Loop（LLM 调工具 + 多轮对话）
+     * - 项目 3: Embedding → 向量检索 → 注入上下文 → LLM 生成
+     *
+     * 流程在 Python 侧：embed query → search ChromaDB → build RAG prompt → LLM generate
+     * timeout 设为 60s，因为 embedding + LLM 两次 API 调用。
+     */
+    public function ragSearch(string $query): array
+    {
+        $response = Http::timeout(60)
+            ->post("{$this->baseUrl}/p03/search", [
+                'query' => $query,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('RAG Search 调用失败', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'query' => $query,
+            ]);
+            throw new \RuntimeException('RAG 搜索服务暂时不可用，请稍后再试');
+        }
+
+        return $response->json();
+    }
 }

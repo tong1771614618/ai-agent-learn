@@ -21,6 +21,7 @@
 /storage/*.key
 /storage/pail
 /storage/logs/*
+/storage/chroma_p03/
 /storage/framework/cache/data/*
 /storage/framework/sessions/*
 /storage/framework/views/*

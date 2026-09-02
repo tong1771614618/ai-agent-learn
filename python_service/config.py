@@ -24,5 +24,9 @@ class Settings:
     DB_USERNAME: str = os.getenv("DB_USERNAME", "root")
     DB_PASSWORD: str = os.getenv("DB_PASSWORD", "")
 
+    # ─── Embedding 配置（P03 RAG 项目使用）────────────────────
+    EMBEDDING_MODEL: str = os.getenv("EMBEDDING_MODEL", "text-embedding-v3")
+    EMBEDDING_DIMENSIONS: int = int(os.getenv("EMBEDDING_DIMENSIONS", "1024"))
+
 
 settings = Settings()

@@ -97,7 +97,7 @@ def chat(user_message: str) -> dict:
 
     # ─── Agent Loop ─────────────────────────────────────────
     # 最多循环 5 次，防止无限循环（LLM 可能出错一直调工具）
-    for round_num in range(5):
+    for round_num in range(10):
         response = client.chat.completions.create(
             model=settings.QWEN_MODEL,
             messages=messages,

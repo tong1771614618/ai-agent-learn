@@ -54,10 +54,14 @@
 """
 
 import json
+import time
 from python_service.shared.llm_client import client
+from python_service.shared.logger import agent_log
 from python_service.config import settings
 from .prompts import SYSTEM_PROMPT
 from .tools import TOOLS, execute_tool
+
+log = agent_log("P02")
 
 
 def chat(user_message: str) -> dict:
@@ -79,6 +83,10 @@ def chat(user_message: str) -> dict:
         ]
     }
     """
+    # ─── 日志: 请求开始 ──────────────────────────────────────
+    log.request(user_message)
+    t0 = time.time()
+
     # ─── 初始化消息列表 ─────────────────────────────────────
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -102,6 +110,10 @@ def chat(user_message: str) -> dict:
 
         # ─── 情况 1: LLM 要调用工具 ──────────────────────────
         if message.tool_calls:
+            # 日志: 本轮 LLM 决策（调工具）
+            log.llm(round=round_num + 1, model=settings.QWEN_MODEL, temp=0.3,
+                    usage=response.usage, decision="tool")
+
             # 先把 assistant 的回复（包含 tool_calls）加入消息历史
             messages.append(message)
 
@@ -109,18 +121,31 @@ def chat(user_message: str) -> dict:
                 tool_name = tool_call.function.name
                 tool_args = json.loads(tool_call.function.arguments)
 
+                # 日志: 工具调用决策
+                log.tool_decision(tool_name, tool_args)
+
                 steps.append({
                     "type": "tool_call",
                     "tool": tool_name,
                     "args": tool_args,
                 })
 
-                # 执行工具
+                # 执行工具（计时）
+                t_tool = time.time()
                 result_json = execute_tool(tool_name, tool_args)
+                tool_ms = (time.time() - t_tool) * 1000
+
+                result_data = json.loads(result_json)
+
+                # 日志: 工具执行结果
+                total = result_data.get("total", 0)
+                products = result_data.get("products", [])
+                preview = [{"name": p.get("name"), "price": p.get("price")} for p in products[:3]]
+                log.tool_result(tool_name, tool_ms, f"{total} 件商品", preview)
 
                 steps.append({
                     "type": "tool_result",
-                    "result": json.loads(result_json),
+                    "result": result_data,
                 })
 
                 # 把工具结果加入消息历史（role=tool，必须带 tool_call_id）
@@ -134,10 +159,16 @@ def chat(user_message: str) -> dict:
 
         # ─── 情况 2: LLM 给出最终回答 ──────────────────────────
         else:
+            # 日志: 最终回答
+            log.answer(round=round_num + 1, usage=response.usage, preview=message.content)
+
             steps.append({
                 "type": "answer",
                 "content": message.content,
             })
+
+            # 日志: 请求完成
+            log.complete(rounds=round_num + 1, time_s=time.time() - t0)
 
             return {
                 "answer": message.content,
@@ -146,6 +177,8 @@ def chat(user_message: str) -> dict:
             }
 
     # 超过最大轮数，强制结束
+    log.complete(rounds=5, time_s=time.time() - t0)
+
     return {
         "answer": "抱歉，我处理了太多步骤，请简化你的问题重试。",
         "steps": steps,

@@ -42,8 +42,7 @@ import pymysql
 from python_service.config import settings
 
 
-# ─── 工具定义（告诉 LLM 有哪些工具可用）─────────────────────────
-#
+# ─── 工具定义（告诉 LLM 有哪些工具可用）─────────────────────────#
 # 这是项目 2 的核心新增内容。
 # LLM 看到这个列表后，会在需要搜索商品时主动调用 search_products。
 #
@@ -126,11 +125,11 @@ def _search_products(
     这是项目 2 里 Agent 的"手"——LLM 决定要搜索，这里负责实际执行。
     """
     conn = pymysql.connect(
-        host="127.0.0.1",
-        port=3306,
-        user="root",
-        password="123456",
-        database="ai_agent_learn",
+        host=settings.DB_HOST,
+        port=settings.DB_PORT,
+        user=settings.DB_USERNAME,
+        password=settings.DB_PASSWORD,
+        database=settings.DB_DATABASE,
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
     )

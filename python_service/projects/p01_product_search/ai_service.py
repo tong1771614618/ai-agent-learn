@@ -61,10 +61,14 @@
 ==========================================================================
 """
 
+import time
 from python_service.shared.llm_client import client
+from python_service.shared.logger import agent_log
 from python_service.config import settings
 from .prompts import SYSTEM_PROMPT
 from .schemas import ParsedQuery
+
+log = agent_log("P01")
 
 
 def parse_query(query: str) -> ParsedQuery:
@@ -82,6 +86,11 @@ def parse_query(query: str) -> ParsedQuery:
             → 本文件 (调 LLM)
               → 返回结构化 JSON
     """
+    # ─── 日志: 请求开始 ──────────────────────────────────────
+    log.request(query)
+
+    t0 = time.time()
+
     response = client.chat.completions.create(
         model=settings.QWEN_MODEL,      # 用哪个模型（qwen3.7-plus）
 
@@ -113,10 +122,11 @@ def parse_query(query: str) -> ParsedQuery:
     #   "usage": {"prompt_tokens": N, "completion_tokens": N, "total_tokens": N}
     # }
     raw_json = response.choices[0].message.content
-
-    # Token 使用统计（生产环境应该写入日志系统，后续项目会做 Observability）
     usage = response.usage
-    print(f"[P01] Token: 输入={usage.prompt_tokens} 输出={usage.completion_tokens} 总计={usage.total_tokens}")
+
+    # ─── 日志: LLM 调用 + 回答预览 ───────────────────────────
+    log.llm(round=1, model=settings.QWEN_MODEL, temp=0.1, usage=usage)
+    log.answer(round=1, preview=raw_json)  # 不传usage,避免与llm()重复计数
 
     # ─── Pydantic 校验 ──────────────────────────────────────
     # model_validate_json 做两件事：
@@ -124,4 +134,9 @@ def parse_query(query: str) -> ParsedQuery:
     # 2. 校验 dict 是否符合 ParsedQuery 的字段定义
     # 如果 LLM 返回了意外的字段或缺少了必填字段，这里会抛异常。
     # 这是结构化输出的最后一道防线。
-    return ParsedQuery.model_validate_json(raw_json)
+    result = ParsedQuery.model_validate_json(raw_json)
+
+    # ─── 日志: 请求完成 ──────────────────────────────────────
+    log.complete(rounds=1, time_s=time.time() - t0)
+
+    return result

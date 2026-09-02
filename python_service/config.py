@@ -17,5 +17,12 @@ class Settings:
         "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1"
     )
 
+    # ─── 数据库配置（复用 Laravel .env 的 DB_* 变量）──────────
+    DB_HOST: str = os.getenv("DB_HOST", "127.0.0.1")
+    DB_PORT: int = int(os.getenv("DB_PORT", "3306"))
+    DB_DATABASE: str = os.getenv("DB_DATABASE", "ai_agent_learn")
+    DB_USERNAME: str = os.getenv("DB_USERNAME", "root")
+    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "")
+
 
 settings = Settings()

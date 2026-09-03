@@ -60,11 +60,9 @@
         .source-card:hover { border-color: #0d9488; }
         .source-card .source-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
         .source-card .source-badge { font-size: 10px; padding: 2px 8px; border-radius: 10px; font-weight: 600; color: white; }
-        .source-card .source-badge.PHP { background: #777bb4; }
-        .source-card .source-badge.LINUX { background: #333; }
-        .source-card .source-badge.MYSQL { background: #00758f; }
-        .source-card .source-badge.NET { background: #e44d26; }
-        .source-card .source-badge.REDIS { background: #dc382d; }
+        .source-card .source-badge.POLICY { background: #0d9488; }
+        .source-card .source-badge.FAQ { background: #e67e22; }
+        .source-card .source-badge.KNOWLEDGE { background: #3498db; }
         .source-card .source-score { font-size: 11px; color: #0d9488; font-family: "SF Mono", "Menlo", monospace; margin-left: auto; }
         .source-card .source-preview { font-size: 12px; color: #666; line-height: 1.5; max-height: 40px; overflow: hidden; transition: max-height 0.3s; }
         .source-card.expanded .source-preview { max-height: 500px; overflow-y: auto; }
@@ -111,8 +109,8 @@
 
     <div class="chat-area" id="chatArea">
         <div class="welcome">
-            <h2>AI 搜索引擎 (RAG)</h2>
-            <p>与项目 1/2 不同，这里的 AI 不是凭空回答——它先从<strong>知识库</strong>中检索相关知识，再基于知识生成回答。这就是 <strong>RAG</strong>（检索增强生成）。</p>
+            <h2>DevShop 智能客服 (RAG)</h2>
+            <p>AI 客服不是凭空回答——它先从 <strong>DevShop 知识库</strong>中检索相关政策、FAQ 和品类知识，再基于知识生成回答。这就是 <strong>RAG</strong>（检索增强生成）。</p>
             <div class="flow">
                 用户提问 → Embedding(问题→向量)<br>
                 → ChromaDB 向量检索(Top-K)<br>
@@ -121,7 +119,7 @@
             </div>
             <div class="compare">
                 <div><span class="old">项目1/2: LLM 靠训练数据回答（可能有幻觉）</span></div>
-                <div><span class="new">项目3: 先检索知识 → 再基于知识回答（可溯源）</span></div>
+                <div><span class="new">项目3: 先检索知识库 → 再基于知识回答（可溯源）</span></div>
             </div>
         </div>
     </div>
@@ -139,11 +137,11 @@
         requestBody: (text) => ({ query: text }),
 
         quickAsks: [
-            'PHP的垃圾回收机制是什么？',
-            'MySQL的B+树索引和B树有什么区别？',
-            'Linux管道和命名管道有什么区别？',
-            'PHP-FPM有哪几种进程管理模式？',
-            '什么是FastCGI协议？',
+            '七天无理由退货需要什么条件？',
+            '运动鞋尺码怎么选？',
+            '蓝牙耳机主动降噪和被动降噪有什么区别？',
+            '会员积分怎么获取和使用？',
+            '快递丢件了怎么办？',
         ],
 
         buildSteps: (data) => {

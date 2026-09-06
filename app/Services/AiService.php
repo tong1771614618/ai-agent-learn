@@ -106,4 +106,59 @@ class AiService
 
         return $response->json();
     }
+
+    /**
+     * 项目 4: HITL 售后 Agent — 聊天
+     *
+     * 与其他项目的区别：
+     * - 项目 2: Agent 自主完成全部操作
+     * - 项目 4: Agent 遇到高风险操作时暂停，返回审批请求
+     *
+     * 返回值可能是普通回答，也可能是 pending_approval 状态 + 审批请求详情。
+     */
+    public function hitlChat(string $message, ?string $sessionId = null): array
+    {
+        $response = Http::timeout(60)
+            ->post("{$this->baseUrl}/p04/chat", [
+                'message' => $message,
+                'session_id' => $sessionId,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('HITL Chat 调用失败', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'message' => $message,
+            ]);
+            throw new \RuntimeException('售后 Agent 服务暂时不可用，请稍后再试');
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * 项目 4: HITL 售后 Agent — 审批
+     *
+     * 用户对 Agent 的操作提案做出批准/拒绝决定后调用。
+     * Python 侧会从数据库恢复对话状态，注入审批决定后继续 Agent Loop。
+     */
+    public function hitlApprove(string $sessionId, bool $approved): array
+    {
+        $response = Http::timeout(60)
+            ->post("{$this->baseUrl}/p04/approve", [
+                'session_id' => $sessionId,
+                'approved' => $approved,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('HITL Approve 调用失败', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'session_id' => $sessionId,
+            ]);
+            throw new \RuntimeException('审批处理失败，请稍后再试');
+        }
+
+        return $response->json();
+    }
 }

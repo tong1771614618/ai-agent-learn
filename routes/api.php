@@ -77,3 +77,9 @@ Route::prefix('v2')->group(function () {
 Route::prefix('v3')->group(function () {
     Route::post('/search', [\App\Http\Controllers\Api\V3\RagSearchController::class, 'search']);
 });
+
+// ─── 项目 4: 售后 Agent (HITL) ─────────────────────────
+Route::prefix('v4')->group(function () {
+    Route::post('/chat', [\App\Http\Controllers\Api\V4\HitlAgentController::class, 'chat']);
+    Route::post('/approve', [\App\Http\Controllers\Api\V4\HitlAgentController::class, 'approve']);
+});

@@ -14,14 +14,11 @@ use Illuminate\Support\Facades\Route;
 |   项目 2: Tool Calling Agent /api/v2/*           →  Python /p02/*
 |   项目 3: AI 搜索引擎(RAG)   /api/v3/*           →  Python /p03/*
 |   项目 4: 售后 Agent (HITL)  /api/v4/*           →  Python /p04/*
-|   项目 5: RAG 知识库         /api/v5/*           →  Python /p05/*
-|   项目 6: RAG + Agent        /api/v6/*           →  Python /p06/*
-|   项目 7: Text-to-SQL        /api/v7/*           →  Python /p07/*
-|   项目 8: Code Review Bot    /api/v8/*           →  Python /p08/*
-|   项目 9: MCP Server         /api/v9/*           →  Python /p09/*
-|   项目10: SRE Agent          /api/v10/*          →  Python /p10/*
-|   项目11: Multi-Agent        /api/v11/*          →  Python /p11/*
-|   项目12: DevPilot           /api/v12/*          →  Python /p12/*
+|   项目 5: 高级RAG+Agentic    /api/v5/*           →  Python /p05/*
+|   项目 6: Text-to-SQL        /api/v6/*           →  Python /p06/*
+|   项目 7: AI代码分析器        /api/v7/*           →  Python /p07/*
+|   项目 8: MCP+运维Agent      /api/v8/*           →  Python /p08/*
+|   项目 9: Multi-Agent平台    /api/v9/*           →  Python /p09/*
 |
 | 每个项目的路由在对应区块内添加，保持清晰。
 |
@@ -82,4 +79,15 @@ Route::prefix('v3')->group(function () {
 Route::prefix('v4')->group(function () {
     Route::post('/chat', [\App\Http\Controllers\Api\V4\HitlAgentController::class, 'chat']);
     Route::post('/approve', [\App\Http\Controllers\Api\V4\HitlAgentController::class, 'approve']);
+});
+
+// ─── 项目 7: AI 代码分析器 (Streaming) ─────────────────────
+Route::prefix('v7')->group(function () {
+    Route::post('/review', [\App\Http\Controllers\Api\V7\CodeAnalyzerController::class, 'review']);
+});
+
+// ─── 项目 8: MCP + SRE Agent ────────────────────────────────
+Route::prefix('v8')->group(function () {
+    Route::post('/diagnose', [\App\Http\Controllers\Api\V8\SreAgentController::class, 'diagnose']);
+    Route::post('/confirm', [\App\Http\Controllers\Api\V8\SreAgentController::class, 'confirm']);
 });

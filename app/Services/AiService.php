@@ -161,4 +161,74 @@ class AiService
 
         return $response->json();
     }
+
+    /**
+     * 项目 7: AI 代码分析器 — 代码审查
+     *
+     * 非流式审查：PHP → Python → 等待生成完 → 返回完整 JSON
+     * 流式审查前端直连 Python /p07/review-stream（PHP 不中转 SSE）
+     */
+    public function codeReview(string $code, ?string $language = null, ?string $focus = null): array
+    {
+        $response = Http::timeout(120)
+            ->post("{$this->baseUrl}/p07/review", [
+                'code' => $code,
+                'language' => $language,
+                'focus' => $focus,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('Code Review 调用失败', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('代码审查服务暂时不可用，请稍后再试');
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * 项目 8: MCP + SRE Agent — 诊断
+     */
+    public function sreDiagnose(string $message, ?string $sessionId = null): array
+    {
+        $response = Http::timeout(120)
+            ->post("{$this->baseUrl}/p08/diagnose", [
+                'message' => $message,
+                'session_id' => $sessionId,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('SRE Diagnose 调用失败', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('SRE Agent 服务暂时不可用，请稍后再试');
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * 项目 8: MCP + SRE Agent — 确认危险操作
+     */
+    public function sreConfirm(string $sessionId, bool $confirmed): array
+    {
+        $response = Http::timeout(120)
+            ->post("{$this->baseUrl}/p08/confirm", [
+                'session_id' => $sessionId,
+                'confirmed' => $confirmed,
+            ]);
+
+        if ($response->failed()) {
+            Log::error('SRE Confirm 调用失败', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            throw new \RuntimeException('SRE 确认处理失败');
+        }
+
+        return $response->json();
+    }
 }

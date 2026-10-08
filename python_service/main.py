@@ -30,7 +30,7 @@ from fastapi import FastAPI
 app = FastAPI(
     title="AI Agent Learn - AI Service",
     description="AI Agent 学习项目统一 AI 服务（12 个项目共用）",
-    version="0.4.0",
+    version="0.7.0",
 )
 
 
@@ -38,7 +38,7 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     """健康检查"""
-    return {"status": "ok", "service": "ai-service", "version": "0.4.0"}
+    return {"status": "ok", "service": "ai-service", "version": "0.7.0"}
 
 
 # ─── 注册各项目路由 ───────────────────────────────────────────
@@ -58,3 +58,9 @@ from python_service.projects.p04_hitl_agent.routes import router as p04_router
 app.include_router(p04_router)
 
 # ─── 项目 5-12 的路由会陆续添加在这里 ─────────────────────────
+
+from python_service.projects.p07_code_analyzer.routes import router as p07_router
+app.include_router(p07_router)
+
+from python_service.projects.p08_mcp_sre.routes import router as p08_router
+app.include_router(p08_router)

@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P07 - AI 代码分析器 (Streaming)</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+
+        /* ─── 顶栏 ─── */
+        .header { background: linear-gradient(135deg, #161b22, #1f2937); padding: 16px 24px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 12px; }
+        .header h1 { font-size: 18px; color: #f0f6fc; }
+        .header .badge { background: #7c3aed; color: #fff; font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+        .header .tag { background: #1f6feb33; color: #58a6ff; font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+
+        /* ─── 主布局 ─── */
+        .main { display: flex; height: calc(100vh - 56px); }
+        .left-panel { width: 50%; border-right: 1px solid #30363d; display: flex; flex-direction: column; }
+        .right-panel { width: 50%; display: flex; flex-direction: column; }
+
+        /* ─── 输入区 ─── */
+        .input-header { padding: 12px 16px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .input-header label { font-size: 13px; color: #8b949e; }
+        .input-header select, .input-header input { background: #161b22; border: 1px solid #30363d; color: #c9d1d9; padding: 4px 8px; border-radius: 6px; font-size: 13px; }
+        .btn-review { background: #7c3aed; color: #fff; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; margin-left: auto; }
+        .btn-review:hover { background: #6d28d9; }
+        .btn-review:disabled { background: #484f58; cursor: not-allowed; }
+
+        .code-area { flex: 1; padding: 0; position: relative; }
+        .code-area textarea { width: 100%; height: 100%; background: #0d1117; color: #c9d1d9; border: none; padding: 16px; font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace; font-size: 13px; line-height: 1.6; resize: none; outline: none; tab-size: 4; }
+        .code-area textarea::placeholder { color: #484f58; }
+
+        /* ─── 快捷示例 ─── */
+        .quick-examples { padding: 8px 16px; border-top: 1px solid #30363d; display: flex; gap: 6px; flex-wrap: wrap; }
+        .quick-examples button { background: #161b22; border: 1px solid #30363d; color: #8b949e; padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer; }
+        .quick-examples button:hover { border-color: #7c3aed; color: #c9d1d9; }
+
+        /* ─── 输出区 ─── */
+        .output-header { padding: 12px 16px; border-bottom: 1px solid #30363d; display: flex; align-items: center; gap: 8px; }
+        .output-header .title { font-size: 14px; font-weight: 600; color: #f0f6fc; }
+        .output-header .streaming-indicator { display: none; width: 8px; height: 8px; background: #7c3aed; border-radius: 50%; animation: pulse 1s infinite; }
+        .output-header .streaming-indicator.active { display: inline-block; }
+        .output-header .time-badge { font-size: 12px; color: #8b949e; margin-left: auto; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        .output-area { flex: 1; overflow-y: auto; padding: 16px; }
+        .output-content { font-size: 14px; line-height: 1.8; }
+        .output-content h3 { color: #f0f6fc; margin: 16px 0 8px; font-size: 16px; border-bottom: 1px solid #21262d; padding-bottom: 4px; }
+        .output-content strong { color: #f0f6fc; }
+        .output-content blockquote { border-left: 3px solid #30363d; padding: 4px 12px; margin: 4px 0; color: #8b949e; background: #161b22; border-radius: 0 4px 4px 0; }
+        .output-content code { background: #161b22; padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', 'Fira Code', Consolas, monospace; font-size: 12px; color: #e06c75; }
+        .output-content ul, .output-content ol { padding-left: 20px; margin: 4px 0; }
+        .output-content li { margin: 2px 0; }
+
+        /* 占位 */
+        .placeholder { text-align: center; padding: 60px 20px; color: #484f58; }
+        .placeholder .icon { font-size: 48px; margin-bottom: 12px; }
+        .placeholder p { font-size: 14px; }
+
+        /* 光标动画 */
+        .cursor::after { content: '▌'; color: #7c3aed; animation: blink 0.7s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📝 AI 代码分析器</h1>
+        <span class="badge">项目 7</span>
+        <span class="tag">Streaming 流式输出</span>
+        <span class="tag">多维度审查</span>
+    </div>
+
+    <div class="main">
+        <!-- 左侧：代码输入 -->
+        <div class="left-panel">
+            <div class="input-header">
+                <label>语言:</label>
+                <select id="language">
+                    <option value="">自动检测</option>
+                    <option value="php">PHP</option>
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="sql">SQL</option>
+                </select>
+                <label>重点:</label>
+                <select id="focus">
+                    <option value="">全面审查</option>
+                    <option value="security">安全问题</option>
+                    <option value="performance">性能问题</option>
+                    <option value="style">代码规范</option>
+                </select>
+                <button class="btn-review" id="btnReview" onclick="startReview()">开始审查</button>
+            </div>
+            <div class="code-area">
+                <textarea id="codeInput" placeholder="在此粘贴或输入代码...&#10;&#10;支持 PHP、Python、JavaScript、SQL 等任意语言&#10;&#10;提示：点击下方快捷示例快速体验"></textarea>
+            </div>
+            <div class="quick-examples">
+                <button onclick="loadExample('php')">PHP SQL注入</button>
+                <button onclick="loadExample('python')">Python 性能</button>
+                <button onclick="loadExample('js')">JS 异步</button>
+                <button onclick="loadExample('laravel')">Laravel N+1</button>
+            </div>
+        </div>
+
+        <!-- 右侧：审查输出 -->
+        <div class="right-panel">
+            <div class="output-header">
+                <span class="streaming-indicator" id="streamDot"></span>
+                <span class="title">审查报告</span>
+                <span class="time-badge" id="timeBadge"></span>
+            </div>
+            <div class="output-area" id="outputArea">
+                <div class="placeholder">
+                    <div class="icon">🔍</div>
+                    <p>在左侧输入代码，点击"开始审查"<br>AI 将实时流式输出审查报告</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ─── 示例代码 ────────────────────────────────────────────────
+const EXAMPLES = {
+    php: `<?php
+// 用户登录接口
+function login($db, $username, $password) {
+    $query = "SELECT * FROM users WHERE username = '$username' AND password = '$password'";
+    $result = $db->query($query);
+    $user = $result->fetch_assoc();
+
+    if ($user) {
+        $_SESSION['user_id'] = $user['id'];
+        $_SESSION['role'] = $user['role'];
+        echo json_encode(['success' => true, 'token' => md5($user['id'])]);
+    } else {
+        echo json_encode(['success' => false, 'error' => '用户名或密码错误']);
+    }
+}
+
+// 获取用户列表
+function getUsers($db) {
+    $result = $db->query("SELECT * FROM users");
+    $users = [];
+    while ($row = $result->fetch_assoc()) {
+        $users[] = $row;
+    }
+    return $users;
+}`,
+
+    python: `import requests
+import json
+
+def fetch_all_products(base_url):
+    """获取所有商品数据"""
+    products = []
+    for i in range(1, 1001):
+        response = requests.get(f"{base_url}/api/products/{i}")
+        if response.status_code == 200:
+            products.append(response.json())
+    return products
+
+def process_orders(orders):
+    """处理订单列表"""
+    result = []
+    for order in orders:
+        total = 0
+        for item in order['items']:
+            price = item.get('price', 0)
+            quantity = item.get('quantity', 0)
+            total += price * quantity
+
+        # 计算折扣
+        discount = 0
+        if total > 1000:
+            discount = total * 0.1
+        elif total > 500:
+            discount = total * 0.05
+
+        result.append({
+            'order_id': order['id'],
+            'total': total - discount,
+            'status': 'processed'
+        })
+
+    # 保存到文件
+    f = open('orders.json', 'w')
+    json.dump(result, f)
+
+    return result`,
+
+    js: `async function loadDashboard() {
+    const users = await fetch('/api/users').then(r => r.json());
+    const orders = await fetch('/api/orders').then(r => r.json());
+    const products = await fetch('/api/products').then(r => r.json());
+
+    // 计算每个用户的订单总额
+    let userStats = [];
+    for (let i = 0; i < users.length; i++) {
+        let userOrders = orders.filter(o => o.user_id == users[i].id);
+        let total = 0;
+        for (let j = 0; j < userOrders.length; j++) {
+            total += userOrders[j].amount;
+        }
+        userStats.push({
+            name: users[i].name,
+            email: users[i].email,
+            total: total,
+            orderCount: userOrders.length
+        });
+    }
+
+    // 更新 DOM
+    document.getElementById('stats').innerHTML = userStats.map(s =>
+        '<div>' + s.name + ': ¥' + s.total + '</div>'
+    ).join('');
+
+    // 设置定时刷新
+    setInterval(loadDashboard, 5000);
+}
+
+loadDashboard();`,
+
+    laravel: `<?php
+// 商品列表控制器
+class ProductController extends Controller
+{
+    public function index()
+    {
+        $products = Product::all();
+        $result = [];
+
+        foreach ($products as $product) {
+            // 获取每个商品的评论数
+            $commentCount = Comment::where('product_id', $product->id)->count();
+
+            // 获取每个商品的平均评分
+            $avgRating = Comment::where('product_id', $product->id)->avg('rating');
+
+            // 获取每个商品的标签
+            $tags = DB::select("SELECT * FROM tags WHERE id IN (SELECT tag_id FROM product_tags WHERE product_id = " . $product->id . ")");
+
+            $result[] = [
+                'name' => $product->name,
+                'price' => $product->price,
+                'comment_count' => $commentCount,
+                'avg_rating' => $avgRating,
+                'tags' => $tags,
+            ];
+        }
+
+        return response()->json($result);
+    }
+}`
+};
+
+function loadExample(key) {
+    document.getElementById('codeInput').value = EXAMPLES[key];
+    if (key === 'php' || key === 'laravel') {
+        document.getElementById('language').value = 'php';
+    } else if (key === 'python') {
+        document.getElementById('language').value = 'python';
+    } else if (key === 'js') {
+        document.getElementById('language').value = 'javascript';
+    }
+}
+
+// ─── 简易 Markdown → HTML 转换 ────────────────────────────────
+function md2html(text) {
+    return text
+        // Headers
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+        // Bold
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Blockquote
+        .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+        // Unordered list
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        // Wrap consecutive <li> in <ul>
+        .replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>')
+        // Line breaks
+        .replace(/\n/g, '<br>');
+}
+
+// ─── 流式审查（核心逻辑）─────────────────────────────────────
+async function startReview() {
+    const code = document.getElementById('codeInput').value.trim();
+    if (!code) { alert('请输入代码'); return; }
+
+    const language = document.getElementById('language').value;
+    const focus = document.getElementById('focus').value;
+    const btn = document.getElementById('btnReview');
+    const output = document.getElementById('outputArea');
+    const dot = document.getElementById('streamDot');
+    const timeBadge = document.getElementById('timeBadge');
+
+    // 重置状态
+    btn.disabled = true;
+    btn.textContent = '审查中...';
+    dot.classList.add('active');
+    output.innerHTML = '<div class="output-content cursor" id="streamContent"></div>';
+    timeBadge.textContent = '';
+
+    const startTime = Date.now();
+    let fullText = '';
+
+    try {
+        // ─── 关键：用 fetch + ReadableStream 消费 SSE ──────────
+        //
+        // 为什么不用 EventSource？
+        // 因为 EventSource 只支持 GET 请求，
+        // 代码审查需要 POST（代码可能很长，不适合放 URL）。
+        //
+        // fetch + ReadableStream 的流程：
+        // 1. fetch 发起 POST 请求
+        // 2. response.body 是一个 ReadableStream
+        // 3. reader.read() 每次读取一小段数据（chunk）
+        // 4. 把 chunk 解码为文本，追加到 fullText
+        // 5. 循环直到 done=true
+        const response = await fetch('http://127.0.0.1:8001/p07/review-stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, language: language || null, focus: focus || null }),
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        const contentEl = document.getElementById('streamContent');
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            // 每个 chunk 是 LLM 新生成的几个字
+            const chunk = decoder.decode(value, { stream: true });
+            fullText += chunk;
+
+            // 实时渲染 Markdown → HTML
+            contentEl.innerHTML = md2html(fullText);
+
+            // 自动滚动到底部
+            output.scrollTop = output.scrollHeight;
+
+            // 更新耗时
+            timeBadge.textContent = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+        }
+
+        // 移除光标动画
+        contentEl.classList.remove('cursor');
+
+    } catch (err) {
+        output.innerHTML = `<div class="placeholder"><div class="icon">❌</div><p>${err.message}</p></div>`;
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '开始审查';
+        dot.classList.remove('active');
+        timeBadge.textContent += ' 完成';
+    }
+}
+</script>
+</body>
+</html>
